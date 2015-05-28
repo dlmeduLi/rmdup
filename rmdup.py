@@ -21,18 +21,20 @@ lowerLimit = 0
 # 
 # Symbol	Description
 # -------------------------------------------------
-# !		Error lines
-# <		Low score alignments
-# =		Pairs with more than one best score
-# ~		Read pair mapped on the same strand
-# ?		Segment length too short
-# 
+# !			Error lines
+# <			Low score alignments
+# =			Pairs with more than one best score
+# ~			Read pair mapped on the same strand
+# ?			Segment length too short
+# @			Mapped positions overlapped	
+#
 
 READ_ERROR = '!'
 READ_LOW_SCORE = '<'
 READ_MULTI_BEST = '='
 READ_WRONG_CHROM = '~'
 READ_WRONG_SIZE = '?'
+READ_OVERLAPPED = '@'
 
 # sort bam file by qname
 # use pysam sort interface
@@ -71,7 +73,7 @@ def ReadPairLen(read1, read2):
 # 1. For reads with the same qname, keep the alignment with the highest score
 # 
 
-def UniqueSingleReads(dictSingle, outFile, logFile):
+def UniqueSingleReads(dictSingle, strictMode, outFile, logFile):
 	count = 0
 
 	if(len(dictSingle) <= 0):
@@ -79,23 +81,39 @@ def UniqueSingleReads(dictSingle, outFile, logFile):
 
 	for reads in dictSingle.itervalues():
 		bestScore = -1
-		bestRead = None
+		bestReads = []
 		for read in reads:
 			score = ScoreByCigar(read.cigar)
 			if(score > bestScore):
 				bestScore = score
-				if(bestRead):
+				for bestRead in bestReads :
 					
 					# write read to log file
 
 					logMsg = READ_LOW_SCORE + ' ' + str(bestRead)
 					logFile.write(logMsg + '\n')
-				bestRead = read
+				bestReads = [read]
+			elif(score == bestScore):
+				bestReads += [read]
 			else:
 				logMsg = READ_LOW_SCORE + ' ' + str(read)
 				logFile.write(logMsg + '\n')
 		
-		# write best read
+		# write best reads
+
+		bestReadCount = len(bestReads)
+		if(bestReadCount <= 0):
+			return 0
+		elif(bestReadCount == 1):
+			bestRead = bestReads[0]
+		else:
+			if(strictMode):
+				for bestRead in bestReads :
+					logMsg = READ_MULTI_BEST + ' ' + str(bestRead)
+					logFile.write(logMsg + '\n')
+				return 0
+			else:
+				bestRead = bestReads[0]
 
 		if(bestRead):
 			outFile.write(bestRead)
@@ -106,7 +124,7 @@ def UniqueSingleReads(dictSingle, outFile, logFile):
 # Unique paired reads:
 #
 # dictPaired Structure:
-# dictPaired = {'key1': (read1, read2, score), 'key2':(read1, read2, score)]}
+# dictPaired = {'key1': [read1, read2], 'key2':[read1, read2]}
 #
 # Unique Strategy:
 #
@@ -117,9 +135,9 @@ def UniqueSingleReads(dictSingle, outFile, logFile):
 # 3. Reads length should be in a proper range
 #
 
-def UniquePairedReads(dictPaired, bamFile, outFile, logFile):
+def UniquePairedReads(dictPaired, strictMode, bamFile, outFile, logFile):
 	bestScore = -1
-	bestPair = None
+	bestPairs = []
 	pairCount = 0
 
 	if(len(dictPaired) <= 0):
@@ -166,18 +184,41 @@ def UniquePairedReads(dictPaired, bamFile, outFile, logFile):
 		score = ReadPairScoreByCigar(pair[0].cigar, pair[1].cigar)
 		if(score > bestScore):
 			bestScore = score
-			if(bestPair):
+			for bestPair in bestPairs:
 				logMsg = READ_LOW_SCORE + ' ' + str(bestPair[0])
 				logFile.write(logMsg + '\n')
 				logMsg = READ_LOW_SCORE + ' ' + str(bestPair[1])
 				logFile.write(logMsg + '\n')
-			bestPair = pair
+			bestPairs = [pair]
+		elif(score == bestScore):
+			bestPairs += [pair]
+		else:
+			logMsg = READ_LOW_SCORE + ' ' + str(pair[0])
+			logFile.write(logMsg + '\n')
+			logMsg = READ_LOW_SCORE + ' ' + str(pair[1])
+			logFile.write(logMsg + '\n')
 
 	# write best pair
 
+	bestPairCount = len(bestPairs)
+	if(bestPairCount <= 0):
+		return 0
+	elif(bestPairCount == 1):
+		bestPair = bestPairs[0]
+	else:
+		if(strictMode):
+			for bestPair in bestPairs:
+				logMsg = READ_MULTI_BEST + ' ' + str(bestPair[0])
+				logFile.write(logMsg + '\n')
+				logMsg = READ_MULTI_BEST + ' ' + str(bestPair[1])
+				logFile.write(logMsg + '\n')
+			return 0
+		else:
+			bestPair = bestPairs[0]
+
 	if(bestPair):
-		outFile.write(pair[0])
-		outFile.write(pair[1])
+		outFile.write(bestPair[0])
+		outFile.write(bestPair[1])
 		pairCount = 1
 
 	return pairCount
@@ -199,6 +240,9 @@ def main():
 						help='the upper limit of the paired reads length')
 	parser.add_option('-l', '--lower-limit', dest='lowerlimit', 
 						help='the lower limit of the paired reads length')
+	parser.add_option('-t', '--strict-mode', 
+						action="store_true", dest="strictmode", default=False,
+						help='strict mode')
 
 	(options, args) = parser.parse_args()
 	if(len(args) != 1):
@@ -215,6 +259,10 @@ def main():
 		SortSam(inputBamFileName, bamFileName)
 		bamFileName += '.bam'
 		rmTemp = True
+
+	strictMode = False
+	if(options.strictmode):
+		strictMode = True
 
 	# Prepare the qname regexp
 
@@ -271,20 +319,21 @@ def main():
 
 			# handle and write results
 
-			keepedCount += UniquePairedReads(dictPaired, bamFile, outFile, logFile)
-			keepedCount += UniqueSingleReads(dictSingle, outFile, logFile)
+			keepedCount += UniquePairedReads(dictPaired, strictMode, bamFile, outFile, logFile)
+			keepedCount += UniqueSingleReads(dictSingle, strictMode, outFile, logFile)
 			dictPaired.clear()
 			dictSingle.clear()
 		
 		if(read.is_proper_pair):
+
+			# paired reads
+
 			chrpos = bamFile.getrname(read.rname).strip() + str(read.pos)
 			chrposNext = bamFile.getrname(read.rnext).strip() + str(read.pnext)
 			if(chrpos < chrposNext):
 				readKey = groupKey + ':' + chrpos + ':' + chrposNext
 			else:
 				readKey = groupKey + ':' + chrposNext + ':' + chrpos
-
-			# paired reads
 
 			readType = -1
 			if(read.is_read1):
@@ -298,12 +347,12 @@ def main():
 			if(readType == 0 or readType == 1):
 				if(readKey in dictPaired):
 					if(dictPaired[readKey][readType]):
-						logMsg = READ_ERROR + ' ' + str(read)
+						logMsg = READ_OVERLAPPED + ' ' + str(read)
 						logFile.write(logMsg + '\n')
 					else:
 						dictPaired[readKey][readType] = read
 				else:
-					dictPaired[readKey] = [None, None, -1]
+					dictPaired[readKey] = [None, None]
 					dictPaired[readKey][readType] = read
 		else:
 
@@ -322,11 +371,16 @@ def main():
 		sys.stdout.write('\r    read #%ld' % (readCount))
 		sys.stdout.flush()
 
-		# write the alignments in the list
+	# write the cached alignments
 
-		# writtenLineCount += UniquePairs(pairs, outfile, logfile)
+	keepedCount += UniquePairedReads(dictPaired, strictMode, bamFile, outFile, logFile)
+	keepedCount += UniqueSingleReads(dictSingle, strictMode, outFile, logFile)
 
-	print('\n    %ld alignments keeped' % (keepedCount))
+	if(readCount == 0):
+		keepedPercent = 0.0
+	else:
+		keepedPercent = keepedCount * 1.0 / readCount
+	print('\n    %ld (%.2f%%) alignments written.' % (keepedCount, keepedPercent * 100))
 	
 	# Clear resources
 

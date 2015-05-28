@@ -18,6 +18,16 @@ rmdup.py [options] in.bam out.sam
 
 The input file of `rmdup.py` must be in `.bam` format. 
 
+## Unique Strategy
+
+### Normal Mode (normal mode)
+
+### Strict Mode (strict mode `-t`)
+
+## Log File Specification
+
+
+
 ## Suggestions
 
 If you have any problems or suggestions, please contact [dlmeduli@163.com](mailto:dlmeduli@163.com).
