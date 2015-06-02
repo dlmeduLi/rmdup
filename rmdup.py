@@ -339,9 +339,6 @@ def main():
 				readType = 1
 			else:
 				readType = 0
-			else:
-				logMsg = READ_ERROR + ' ' + str(read)
-				logFile.write(logMsg + '\n')
 
 			if(readType == 0 or readType == 1):
 				if(readKey in dictPaired):
