@@ -25,7 +25,7 @@ lowerLimit = 0
 # <			Low score alignments
 # =			Pairs with more than one best score
 # ~			Read pair mapped on the same strand
-# ?			Segment length too short
+# ?			Segment length out of reasonable range
 # @			Mapped positions overlapped	
 #
 
@@ -58,8 +58,6 @@ def ReadPairScoreByCigar(cigar1, cigar2):
 
 def ReadPairLen(read1, read2):
 	if(not (read1 and read2)):
-		return -1
-	if(not (read1.is_read1 and read2.is_read2)):
 		return -1
 	return (read2.pos + read2.query_length - read1.pos)
 
@@ -340,16 +338,15 @@ def main():
 			else:
 				readType = 0
 
-			if(readType == 0 or readType == 1):
-				if(readKey in dictPaired):
-					if(dictPaired[readKey][readType]):
-						logMsg = READ_OVERLAPPED + ' ' + str(read)
-						logFile.write(logMsg + '\n')
-					else:
-						dictPaired[readKey][readType] = read
+			if(readKey in dictPaired):
+				if(dictPaired[readKey][readType]):
+					logMsg = READ_OVERLAPPED + ' ' + str(read)
+					logFile.write(logMsg + '\n')
 				else:
-					dictPaired[readKey] = [None, None]
 					dictPaired[readKey][readType] = read
+			else:
+				dictPaired[readKey] = [None, None]
+				dictPaired[readKey][readType] = read
 		else:
 
 			# single read
