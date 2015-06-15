@@ -217,7 +217,7 @@ def UniquePairedReads(dictPaired, strictMode, bamFile, outFile, logFile):
 	if(bestPair):
 		outFile.write(bestPair[0])
 		outFile.write(bestPair[1])
-		pairCount = 1
+		pairCount = 2
 
 	return pairCount
 
