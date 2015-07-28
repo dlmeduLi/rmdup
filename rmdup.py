@@ -295,7 +295,7 @@ def main():
 
 	outFile = pysam.AlignmentFile(outputBamFileName, 'wb', template = bamFile)
 
-	logFileName = baseFileName + '.log'
+	logFileName = baseFileName + 'rmdup.log'
 	try:
 		logFile = open(logFileName, 'w')
 	except IOError:
