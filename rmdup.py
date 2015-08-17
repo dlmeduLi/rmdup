@@ -36,7 +36,7 @@ READ_WRONG_CHROM = '~'
 READ_WRONG_SIZE = '?'
 READ_OVERLAPPED = '@'
 
-# sort bam file by qname
+# sort bam file by qname 
 # use pysam sort interface
 
 def SortSam(inBam, outBam):
@@ -241,6 +241,9 @@ def main():
 	parser.add_option('-t', '--strict-mode', 
 						action="store_true", dest="strictmode", default=False,
 						help='strict mode')
+	parser.add_option('-q', '--quiet-mode', 
+						action="store_true", dest="quiet", default=False,
+						help='supress progress output')
 
 	(options, args) = parser.parse_args()
 	if(len(args) != 1):
@@ -369,8 +372,9 @@ def main():
 		# progress information 
 
 		readCount = readCount + 1
-		sys.stdout.write('\r    read #%ld' % (readCount))
-		sys.stdout.flush()
+		if not options.quiet :
+			sys.stdout.write('\r    read #%ld' % (readCount))
+			sys.stdout.flush()
 
 	# write the cached alignments
 
