@@ -361,7 +361,11 @@ def main():
 			try:
 				readKey = groupKey + ':' + readNumRe.findall(read.qname)[0]
 			except:
-				readKey = groupKey
+				if(read.is_read1):
+					readNum = '1'
+				else:
+					readNum = '2'
+				readKey = groupKey + ':' + readNum
 
 			if(readKey in dictSingle):
 				dictSingle[readKey] += [read]
